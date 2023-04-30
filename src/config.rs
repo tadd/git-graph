@@ -81,7 +81,9 @@ fn read_model_from_config<P: AsRef<Path> + AsRef<OsStr>>(
 
         read_model(&repo_config.model, app_model_path)
     } else {
-        read_model("git-flow", app_model_path).or_else(|_| Ok(BranchSettingsDef::git_flow()))
+        read_model("default", app_model_path)
+            .or_else(|_| read_model("git-flow", app_model_path))
+            .or_else(|_| Ok(BranchSettingsDef::git_flow()))
     }
 }
 
