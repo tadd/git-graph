@@ -66,6 +66,25 @@ pub fn get_model_name(repository: &Repository, file_name: &str) -> Result<Option
     }
 }
 
+fn read_model_from_config<P: AsRef<Path> + AsRef<OsStr>>(
+    repository: &Repository,
+    repo_config_file: &str,
+    app_model_path: &P,
+) -> Result<BranchSettingsDef, String> {
+    let mut config_path = PathBuf::from(repository.path());
+    config_path.push(repo_config_file);
+
+    if config_path.exists() {
+        let repo_config: RepoSettings =
+            toml::from_str(&std::fs::read_to_string(config_path).map_err(|err| err.to_string())?)
+                .map_err(|err| err.to_string())?;
+
+        read_model(&repo_config.model, app_model_path)
+    } else {
+        read_model("git-flow", app_model_path).or_else(|_| Ok(BranchSettingsDef::git_flow()))
+    }
+}
+
 /// Try to get the branch settings for a given model.
 /// If no model name is given, returns the branch settings set for the repo, or the default otherwise.
 pub fn get_model<P: AsRef<Path> + AsRef<OsStr>>(
@@ -76,22 +95,7 @@ pub fn get_model<P: AsRef<Path> + AsRef<OsStr>>(
 ) -> Result<BranchSettingsDef, String> {
     match model {
         Some(model) => read_model(model, app_model_path),
-        None => {
-            let mut config_path = PathBuf::from(repository.path());
-            config_path.push(repo_config_file);
-
-            if config_path.exists() {
-                let repo_config: RepoSettings = toml::from_str(
-                    &std::fs::read_to_string(config_path).map_err(|err| err.to_string())?,
-                )
-                .map_err(|err| err.to_string())?;
-
-                read_model(&repo_config.model, app_model_path)
-            } else {
-                Ok(read_model("git-flow", app_model_path)
-                    .unwrap_or_else(|_| BranchSettingsDef::git_flow()))
-            }
-        }
+        None => read_model_from_config(repository, repo_config_file, app_model_path),
     }
 }
 
